@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+https://www.springframework.org/schema/beans/spring-beans.xsd
+http://www.springframework.org/schema/aop
+https://www.springframework.org/schema/aop/spring-aop.xsd
+http://www.springframework.org/schema/tx
+https://www.springframework.org/schema/tx/spring-tx.xsd
+http://www.springframework.org/schema/context
+https://www.springframework.org/schema/context/spring-context.xsd
+http://www.springframework.org/schema/mvc
+https://www.springframework.org/schema/mvc/spring-mvc.xsd">
+
+    <context:component-scan base-package="com.cslg"/>
+
+    <!-- 创建Filter对象   -->
+    <bean id="shiroFilter" class="org.apache.shiro.spring.web.ShiroFilterFactoryBean">
+        <property name="securityManager" ref="defaultSecurityManager"/>
+        <!--  登录成功的跳转页面      -->
+        <property name="loginUrl" value="login.html"/>
+        <!--    未授权的跳转页面    -->
+        <property name="unauthorizedUrl" value="403.html"/>
+        <!--    过滤器链    -->
+        <property name="filterChainDefinitions">
+            <value>
+                <!--   不需要任何验证可访问的          -->
+                /login.html = anon
+                /subLogin = anon
+                <!--   需要认证可访问的路径             -->
+                /* = authc
+                <!--                -->
+                /testRole = rolesOr["admin"]
+                <!--   同时具备两个admin   -->
+                /testRole1 = rolesOr["admin","admin1"]
+                /testPerms = perms["user:delete"]
+                <!--            -->
+                /logout.html = logout
+            </value>
+        </property>
+        <property name="filters">
+            <map>
+                <entry key="rolesOr" value-ref="rolesOrFliter"/>
+            </map>
+        </property>
+    </bean>
+
+    <bean id="dataSource" class="com.alibaba.druid.pool.DruidDataSource">
+        <property name="driverClassName" value="com.mysql.cj.jdbc.Driver"/>
+        <property name="url" value="jdbc:mysql://localhost:3306/shiro?serverTimezone=UTC"/>
+        <property name="username" value="Miku"/>
+        <property name="password" value="39"/>
+    </bean>
+
+    <bean id="rolesOrFliter" class="com.cslg.filter.RolesOrFliter"/>
+
+    <bean id="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+        <property name="dataSource" ref="dataSource"/>
+    </bean>
+
+    <!-- 创建SecurityManager 对象   -->
+    <bean id="defaultSecurityManager" class="org.apache.shiro.web.mgt.DefaultWebSecurityManager">
+        <property name="realm" ref="customRelam"/>
+        <property name="sessionManager" ref="sessionManager"/>
+    </bean>
+
+    <bean id="customRelam" class="com.cslg.shiro.relam.CustomRealm">
+        <property name="credentialsMatcher" ref="credentialsMatcher"/>
+    </bean>
+
+    <bean id="credentialsMatcher" class="org.apache.shiro.authc.credential.HashedCredentialsMatcher">
+        <property name="hashAlgorithmName" value="MD5"/>
+        <property name="hashIterations" value="1"/>
+    </bean>
+
+    <aop:config proxy-target-class="true"/>
+
+    <!-- 保证Shiro内部LifeCycle执行的对象-->
+    <bean class="org.apache.shiro.spring.LifecycleBeanPostProcessor"/>
+
+    <bean class="org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor">
+        <property name="securityManager" ref="defaultSecurityManager"/>
+    </bean>
+
+    <bean id="jedisPool" class="redis.clients.jedis.JedisPool">
+        <constructor-arg index="0" value="localhost" type="java.lang.String"/>
+        <constructor-arg index="1" value="6379" type="int"/>
+    </bean>
+
+    <bean id="sessionManager" class="com.cslg.session.CustomerSessionManager">
+        <property name="sessionDAO" ref="redisSessionDao"/>
+    </bean>
+
+    <mvc:annotation-driven>
+        <mvc:message-converters>
+            <bean class="org.springframework.http.converter.StringHttpMessageConverter">
+                <property name="supportedMediaTypes">
+                    <list>
+                        <value>text/html;charset=UTF-8</value>
+                    </list>
+                </property>
+            </bean>
+        </mvc:message-converters>
+    </mvc:annotation-driven>
+
+    <mvc:default-servlet-handler/>
+
+
+</beans>
